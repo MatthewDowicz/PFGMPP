@@ -1,7 +1,22 @@
 import torch
 import jax
 import jax.numpy as jnp
+from jax import random
 import numpy as np
+
+def generate_data(key_seed, size=4000, std=0.2, mean_scale=1):
+    key = random.PRNGKey(key_seed)
+    rng, subkey1, subkey2 = random.split(key, num=3)
+
+    # Generate data for X_0 & X_1
+    X_0 = mean_scale + random.normal(subkey1, shape=(size, 2)) * std
+    X_1 = -mean_scale + random.normal(subkey2, shape=(size, 2)) * std
+
+    # Concatenate
+    X = jnp.concatenate([X_0, X_1], axis=0)
+    
+    return X
+
 
 class JaxDataset(torch.utils.data.Dataset):
     def __init__(self, X):
