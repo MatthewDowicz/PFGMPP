@@ -68,7 +68,7 @@ def sample_norm(N, D, size, key):
     R2 = R1 / (1 - R1 +1e-8)
     return R2
 
-def train_step(state, batch, std_data, D, N):
+def train_step(state, batch, std_data, D, N, key_seed):
     """
     Args:
     ----
@@ -79,7 +79,7 @@ def train_step(state, batch, std_data, D, N):
     """
     # Define the loss function
     def loss_fn(params):
-        key = random.PRNGKey(0)
+        key = random.PRNGKey(key_seed)
         
         # Sampling from the noise distribution (Table 1 Karras et al. 2022)
         rnd_normal = random.normal(key, shape=(batch.shape[0], 1))
@@ -212,8 +212,8 @@ def train_model(train_loader, model, state, config, rng_seed=21, wandb_logging=F
             batch = jax.device_put(batch)
 
             # Update the model
-            train_step_jit = jax.jit(train_step, static_argnums=(3,4))
-            state, batch_loss = train_step_jit(state, batch, config['std_data'], config['D'], config['N'])    
+            train_step_jit = jax.jit(train_step, static_argnums=(3,4,5))
+            state, batch_loss = train_step_jit(state, batch, config['std_data'], config['D'], config['N'], config['seed'])    # UPDATE THIS 
 
             # Store the batch-level metric in the list
             batch_metrics.append({'Train Loss': batch_loss})
@@ -236,3 +236,53 @@ def train_model(train_loader, model, state, config, rng_seed=21, wandb_logging=F
 
     return model, state
 
+
+def train_model_sweep(train_loader, model, state, config, key_seed=47, wandb_logging=True):
+    """
+    Train a machine learning model with optional Weights & Biases (wandb) logging.
+
+    Parameters:
+    -----------
+    train_loader: 
+        A data loader providing the training data.
+    model: 
+        The model to be trained.
+    state: 
+        The initial state of the model.
+    config: dict
+        A dictionary containing configuration parameters for training, such as learning rate, batch size etc.
+    wandb_logging: bool
+        If True, training progress is logged using wandb.
+        Default is False.
+
+    Returns:
+    --------
+        model: The trained model.
+        state: The final state of the model after training.
+    """
+    key = random.PRNGKey(key_seed)
+
+    # Start the training loop
+    for epoch in tqdm(range(config['epochs'])):
+        # Initialize a list to store all batch-level metrics
+        batch_metrics = []
+
+        for batch in train_loader:
+            # Prepare the data
+            batch = jax.device_put(batch)
+
+            # Update the model
+            train_step_jit = jax.jit(train_step, static_argnums=(3,4,5))
+            state, batch_loss = train_step_jit(state, batch, config['std_data'], config['D'], config['N'], key)    
+
+            # Store the batch-level metric in the list
+            batch_metrics.append({'Train Loss': batch_loss})
+
+        # Use accumulate_metrics to calculate average metrics for the epoch
+        epoch_metrics = accumulate_metrics(batch_metrics)
+
+        # If wandb logging is enabled, log metrics
+        if wandb_logging:
+            wandb.log(epoch_metrics)
+
+    return model, state
