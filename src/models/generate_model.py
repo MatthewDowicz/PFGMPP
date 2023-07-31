@@ -64,7 +64,7 @@ def sample_loop(updated_model: nn.Module,
                 N: int = 2, 
                 rho: int = 7, 
                 std_data: float = 0.5, 
-                key: random.PRNGKey = random.PRNGKey(32)) -> jnp.array:
+                key_seed: int = 32) -> jnp.array:
     """
     Performs the sampling loop for a diffusion model.
 
@@ -89,6 +89,7 @@ def sample_loop(updated_model: nn.Module,
     """
     # Split the keys, so we have different RNGs in the sampling process 
     # ^ DOES THIS MAKE SENSE ^^^
+    key = random.PRNGKey(key_seed)
     rng, subkey1, subkey2, subkey3, subkey4 = random.split(key, num=5)
     
     # Latent space vectors
