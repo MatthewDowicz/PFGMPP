@@ -260,8 +260,6 @@ def train_model_sweep(train_loader, model, state, config, key_seed=47, wandb_log
         model: The trained model.
         state: The final state of the model after training.
     """
-    key = random.PRNGKey(key_seed)
-
     # Start the training loop
     for epoch in tqdm(range(config['epochs'])):
         # Initialize a list to store all batch-level metrics
@@ -273,7 +271,7 @@ def train_model_sweep(train_loader, model, state, config, key_seed=47, wandb_log
 
             # Update the model
             train_step_jit = jax.jit(train_step, static_argnums=(3,4,5))
-            state, batch_loss = train_step_jit(state, batch, config['std_data'], config['D'], config['N'], key)    
+            state, batch_loss = train_step_jit(state, batch, config['std_data'], config['D'], config['N'], config['train_model_key'])    
 
             # Store the batch-level metric in the list
             batch_metrics.append({'Train Loss': batch_loss})
