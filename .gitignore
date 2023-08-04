@@ -1,6 +1,7 @@
 # PFGMPP relevant things
 wandb/
 saved_models/
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
