@@ -128,13 +128,45 @@ def accumulate_metrics(metrics):
         for k in metrics[0]
     }
 
+# def save_checkpoint(ckpt_dir: str,
+#                     state: Any,
+#                     step: int,
+#                     run_name: str) -> None:
+#     """
+#     Save the training state as a checkpoint
+    
+#     Args:
+#     -----
+#         ckpt_dir: str
+#             Directory to save the checkpoint files.
+#         state: Any
+#             The training state to be saved.
+#         step: int
+#             Current training step or epoch number.
+#         run_name: str
+#             Name to associate with checkpoint on wandb
+#     """
+#     ckptr = orbax.checkpoint.Checkpointer(orbax.checkpoint.PyTreeCheckpointHandler())
+    
+#     # Ensure directory exists
+#     os.makedirs(ckpt_dir, exist_ok=True)
+    
+#     # Create checkpoint file path with the ".flax" extension
+#     ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{step}.flax")
+    
+#     # Save checkpoint to local directory
+#     ckptr.save(ckpt_file, state,
+#                save_args=flax.training.orbax_utils.save_args_from_target(state),
+#                force=True)
+
+
 def save_checkpoint(ckpt_dir: str,
                     state: Any,
                     step: int,
-                    run_name: str) -> None:
+                    wandb_logging: bool = False) -> None:
     """
     Save the training state as a checkpoint
-    
+
     Args:
     -----
         ckpt_dir: str
@@ -143,22 +175,29 @@ def save_checkpoint(ckpt_dir: str,
             The training state to be saved.
         step: int
             Current training step or epoch number.
-        run_name: str
-            Name to associate with checkpoint on wandb
+        wandb_logging: bool
+            If True, uses the wandb run name in the checkpoint filename.
+            Default is False.
     """
     ckptr = orbax.checkpoint.Checkpointer(orbax.checkpoint.PyTreeCheckpointHandler())
-    
+
     # Ensure directory exists
     os.makedirs(ckpt_dir, exist_ok=True)
-    
-    # Create checkpoint file path with the ".flax" extension
-    ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{step}.flax")
-    
+
+    # Get the wandb run name or id if wandb logging is enabled
+    run_name = wandb.run.name if wandb_logging else ""
+
+    # Create checkpoint file path with the ".flax" extension and the wandb run name if applicable
+    ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{run_name}_{step}epochs.flax")
+
     # Save checkpoint to local directory
     ckptr.save(ckpt_file, state,
                save_args=flax.training.orbax_utils.save_args_from_target(state),
                force=True)
-    
+
+    # If wandb logging is enabled, save the checkpoint to wandb run
+    if wandb_logging:
+        wandb.save(ckpt_file)
 
 def train_model(train_loader, model, state, config, rng_seed=21, wandb_logging=False, project_name='toy_pfgmpp', job_type='simple_noise_net', dir_name='PFGMPP/saved_models/toy'):
     """
@@ -229,10 +268,10 @@ def train_model(train_loader, model, state, config, rng_seed=21, wandb_logging=F
     checkpt_dir = dir_name # dir to save the checkpoints
     save_checkpoint(checkpt_dir, state, config['epochs'], project_name)
 
-    # If wandb logging is enabled, save the model checkpoint
-    if wandb_logging:
-        base_path = os.path.dirname(os.path.abspath(dir_name))
-        wandb.save(os.path.join(checkpt_dir, f"checkpoint_{config['epochs']}.flax"), base_path=base_path)
+    # # If wandb logging is enabled, save the model checkpoint
+    # if wandb_logging:
+    #     base_path = os.path.dirname(os.path.abspath(dir_name))
+    #     wandb.save(os.path.join(checkpt_dir, f"checkpoint_{config['epochs']}.flax"), base_path=base_path)
 
     return model, state
 
