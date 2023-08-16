@@ -160,6 +160,47 @@ def accumulate_metrics(metrics):
 #                force=True)
 
 
+# def save_checkpoint(ckpt_dir: str,
+#                     state: Any,
+#                     step: int,
+#                     wandb_logging: bool = False) -> None:
+#     """
+#     Save the training state as a checkpoint
+
+#     Args:
+#     -----
+#         ckpt_dir: str
+#             Directory to save the checkpoint files.
+#         state: Any
+#             The training state to be saved.
+#         step: int
+#             Current training step or epoch number.
+#         wandb_logging: bool
+#             If True, uses the wandb run name in the checkpoint filename.
+#             Default is False.
+#     """
+#     ckptr = orbax.checkpoint.Checkpointer(orbax.checkpoint.PyTreeCheckpointHandler())
+
+#     # Ensure directory exists
+#     os.makedirs(ckpt_dir, exist_ok=True)
+
+#     # Get the wandb run name or id if wandb logging is enabled
+#     run_name = wandb.run.name if wandb_logging else ""
+
+#     # Create checkpoint file path with the ".flax" extension and the wandb run name if applicable
+#     ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{run_name}_{step}epochs.flax")
+
+#     # Save checkpoint to local directory
+#     ckptr.save(ckpt_file, state,
+#                save_args=flax.training.orbax_utils.save_args_from_target(state),
+#                force=True)
+
+#     # If wandb logging is enabled, save the checkpoint to wandb run
+#     if wandb_logging:
+#         wandb.save(ckpt_file)
+
+
+
 def save_checkpoint(ckpt_dir: str,
                     state: Any,
                     step: int,
@@ -188,7 +229,7 @@ def save_checkpoint(ckpt_dir: str,
     run_name = wandb.run.name if wandb_logging else ""
 
     # Create checkpoint file path with the ".flax" extension and the wandb run name if applicable
-    ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{run_name}_{step}epochs.flax")
+    ckpt_file = os.path.join(ckpt_dir, f"checkpoint_{run_name}.flax")
 
     # Save checkpoint to local directory
     ckptr.save(ckpt_file, state,
@@ -299,6 +340,9 @@ def train_model_sweep(train_loader, model, state, config, key_seed=47, wandb_log
         model: The trained model.
         state: The final state of the model after training.
     """
+    # Initialize a var to hold the best test loss seen so far
+    best_train_loss = float('inf')
+    
     # Start the training loop
     for epoch in tqdm(range(config['epochs'])):
         # Initialize a list to store all batch-level metrics
@@ -318,6 +362,14 @@ def train_model_sweep(train_loader, model, state, config, key_seed=47, wandb_log
         # Use accumulate_metrics to calculate average metrics for the epoch
         epoch_metrics = accumulate_metrics(batch_metrics)
 
+        # If the train loss for this epoch is better than the previous best,
+        # save the model
+        if epoch_metrics['Train Loss'] < best_train_loss:
+            best_train_loss = epoch_metrics['Train Loss'] # Update the best train loss
+            checkpt_dir = dir_name # dir where models are saved to
+            save_checkpoint(checkpt_dir, state, epoch, project_name)
+
+        
         # If wandb logging is enabled, log metrics
         if wandb_logging:
             wandb.log(epoch_metrics)
